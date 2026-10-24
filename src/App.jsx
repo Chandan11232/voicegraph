@@ -78,6 +78,7 @@ export default function App() {
   const [animating, setAnimating] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [toast, setToast] = useState(null);
+  const [waitSeconds, setWaitSeconds] = useState(0); // counting down to an automatic retry after a rate limit
   const [menu, setMenu] = useState(null); // "docs" | "export" | null
   const [sayAllOpen, setSayAllOpen] = useState(false);
   const [command, setCommand] = useState("");
@@ -106,6 +107,12 @@ export default function App() {
   const logRef = useRef(null);
 
   const archSelection = selection.filter((id) => !id.startsWith("group:"));
+
+  useEffect(() => {
+    if (waitSeconds <= 0) return;
+    const t = setTimeout(() => setWaitSeconds((n) => Math.max(0, n - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [waitSeconds]);
 
   // ---- Persistence ----
 
@@ -483,7 +490,7 @@ export default function App() {
     if (!cur.graph.nodes.length) return addLog({ role: "assistant", text: "Draw something first, then I can review it." });
     setBusy("review");
     try {
-      const res = await callApi({ mode: "review", graph: cur.graph });
+      const res = await callApi({ mode: "review", graph: cur.graph }, { onWait: setWaitSeconds });
       setFindings(res.findings);
       addLog({ role: "assistant", kind: "review", text: res.summary || "Here's what I'd look at.", findings: res.findings });
       speak(res.summary || "Review ready.");
@@ -500,7 +507,7 @@ export default function App() {
     if (!cur.graph.nodes.length) return addLog({ role: "assistant", text: "Draw something first, then I can document it." });
     setBusy("docs");
     try {
-      const res = await callApi({ mode: "docs", graph: cur.graph });
+      const res = await callApi({ mode: "docs", graph: cur.graph }, { onWait: setWaitSeconds });
       const markdown = `## Architecture\n\n\`\`\`mermaid\n${toMermaid(cur.graph)}\n\`\`\`\n\n${res.markdown}\n`;
       addLog({ role: "assistant", kind: "docs", text: "Your README section is ready, with the diagram included as Mermaid.", markdown });
       speak("Your README section is ready.");
@@ -683,7 +690,7 @@ export default function App() {
     const cur = docRef.current;
     setBusy("edit");
     try {
-      const res = await callApi({ mode: "edit", command: aiCommand, graph: cur.graph, selection: selectionRef.current.filter((id) => !id.startsWith("group:")) });
+      const res = await callApi({ mode: "edit", command: aiCommand, graph: cur.graph, selection: selectionRef.current.filter((id) => !id.startsWith("group:")) }, { onWait: setWaitSeconds });
       const graph = sanitizeGraph(res.graph);
       const changed = JSON.stringify(graph) !== JSON.stringify(cur.graph);
       if (changed) {
@@ -847,7 +854,9 @@ export default function App() {
     : doc.isSample ? SUGGESTIONS_SAMPLE : SUGGESTIONS_GENERIC;
   const selectedLabels = doc.graph.nodes.filter((n) => archSelection.includes(n.id)).map((n) => n.label);
   const h = hist(doc.id);
-  const busyLabel = { edit: "Drawing…", review: "Reviewing your architecture…", docs: "Writing your README section…" }[busy];
+  const busyLabel = waitSeconds > 0
+    ? `The AI is catching up, retrying in ${waitSeconds}s…`
+    : { edit: "Drawing…", review: "Reviewing your architecture…", docs: "Writing your README section…" }[busy];
   const sortedDocs = Object.values(store.docs).sort((a, b) => b.updatedAt - a.updatedAt);
 
   const selectNodes = (ids) => {

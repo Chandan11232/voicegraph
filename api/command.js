@@ -6,6 +6,10 @@ import { KINDS, COLORS, sanitizeGraph, graphForPrompt } from "../shared/graph.js
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+// Each Groq model has its own free-tier limits, so when the main model is rate-limited the
+// same request goes to the next one instead of failing.
+const FALLBACK_MODELS = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"];
+const MODELS = [MODEL, ...FALLBACK_MODELS.filter((m) => m !== MODEL)];
 
 const MAX_COMMAND_CHARS = 1000;
 const MAX_GRAPH_CHARS = 24000;
@@ -98,9 +102,10 @@ async function readBody(req) {
 }
 
 class UserError extends Error {
-  constructor(status, message) {
+  constructor(status, message, extra = {}) {
     super(message);
     this.status = status;
+    this.extra = extra;
   }
 }
 
@@ -117,43 +122,71 @@ async function fetchWithRetry(init) {
   return fetch(GROQ_URL, init);
 }
 
+function requestBody(model, system, user, maxTokens) {
+  return JSON.stringify({
+    model,
+    temperature: 0.2,
+    max_tokens: maxTokens,
+    response_format: { type: "json_object" },
+    // gpt-oss "thinks" before answering, and those tokens count against the per-minute limit.
+    // Diagram edits don't need deep reasoning.
+    ...(model.startsWith("openai/gpt-oss") && { reasoning_effort: "low" }),
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+  });
+}
+
 async function askModel(system, user, maxTokens = 4096) {
   let response;
-  try {
-    response = await fetchWithRetry({
+  let model;
+  for (const [i, candidate] of MODELS.entries()) {
+    model = candidate;
+    const init = {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: MODEL,
-        temperature: 0.2,
-        max_tokens: maxTokens,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-      }),
-    });
-  } catch (err) {
-    console.error("Groq request failed", err);
-    throw new UserError(502, "Couldn't reach the AI service. Try again.");
+      body: requestBody(model, system, user, maxTokens),
+    };
+    try {
+      // Only the last model waits out a short rate limit; the others hand over right away.
+      response = i === MODELS.length - 1 ? await fetchWithRetry(init) : await fetch(GROQ_URL, init);
+    } catch (err) {
+      console.error("Groq request failed", model, err);
+      throw new UserError(502, "Couldn't reach the AI service. Try again.");
+    }
+    if (response.status !== 429) break;
+    console.warn(`Groq rate limit on ${model}${i < MODELS.length - 1 ? `, trying ${MODELS[i + 1]}` : ""}`);
   }
 
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    console.error("Groq API error", response.status, detail);
+    // Sometimes the model answers in plain words ("I don't see a queue, did you mean…?") instead of JSON.
+    // That's still a useful reply, so hand it back as text rather than failing.
+    if (response.status === 400) {
+      try {
+        const err = JSON.parse(detail).error;
+        if (err?.code === "json_validate_failed" && err.failed_generation?.trim()) return { plainText: err.failed_generation.trim() };
+      } catch {}
+    }
+    console.error("Groq API error", model, response.status, detail);
     if (response.status === 401) throw new UserError(500, "The server's Groq API key is missing or invalid.");
-    if (response.status === 429) throw new UserError(429, "The AI is busy right now. Try again in a moment.");
+    if (response.status === 429) {
+      // Tell the browser how long Groq wants us to wait, so it can retry by itself.
+      const wait = Number(response.headers.get("retry-after")) || Number(detail.match(/try again in ([\d.]+)s/)?.[1]) || 20;
+      throw new UserError(429, "The AI is busy right now. Try again in about a minute.", { retryAfter: Math.ceil(wait) });
+    }
     throw new UserError(502, "The AI couldn't process that. Try again.");
   }
 
   const data = await response.json();
+  if (process.env.VG_LOG_USAGE) console.log("usage", model, JSON.stringify(data.usage));
   const choice = data.choices?.[0];
   if (choice?.finish_reason === "length") throw new UserError(502, "The answer got too long to finish. Try a smaller diagram or change.");
   try {
     return JSON.parse(choice.message.content);
   } catch {
-    console.error("Unparseable model output", choice?.message?.content?.slice(0, 500));
+    console.error("Unparseable model output", model, choice?.message?.content?.slice(0, 500));
     throw new UserError(502, "The AI sent back something I couldn't read. Try again.");
   }
 }
@@ -169,6 +202,7 @@ async function edit({ command, graph, selection }) {
   const user = `Current diagram:\n${graph.nodes.length ? graphForPrompt(graph) : "(empty: start a new diagram)"}\n\n${selectionLine}\n\nCommand: ${command}`;
 
   const out = await askModel(EDIT_PROMPT, user);
+  if (out?.plainText) return { graph, summary: out.plainText.slice(0, 700) };
   if (!out || typeof out.graph !== "object") throw new UserError(502, "The AI sent back something I couldn't read. Try again.");
   return { graph: sanitizeGraph(out.graph), summary: String(out.summary || "Updated the diagram.").trim().slice(0, 700) };
 }
@@ -176,6 +210,7 @@ async function edit({ command, graph, selection }) {
 async function review({ graph }) {
   if (!graph.nodes.length) throw new UserError(400, "Draw something first, then I can review it.");
   const out = await askModel(REVIEW_PROMPT, `Diagram:\n${graphForPrompt(graph)}`);
+  if (out?.plainText) return { summary: out.plainText.slice(0, 700), findings: [] };
   const ids = new Set(graph.nodes.map((n) => n.id));
   const findings = (Array.isArray(out.findings) ? out.findings : []).slice(0, 8).map((f) => ({
     nodeIds: (Array.isArray(f.nodeIds) ? f.nodeIds : []).filter((id) => ids.has(id)),
@@ -189,6 +224,7 @@ async function review({ graph }) {
 async function docs({ graph }) {
   if (!graph.nodes.length) throw new UserError(400, "Draw something first, then I can document it.");
   const out = await askModel(DOCS_PROMPT, `Diagram:\n${graphForPrompt(graph)}`);
+  if (out?.plainText) return { markdown: out.plainText };
   if (typeof out.markdown !== "string" || !out.markdown.trim()) throw new UserError(502, "The AI didn't write anything. Try again.");
   return { markdown: out.markdown.trim() };
 }
@@ -222,7 +258,7 @@ export default async function handler(req, res) {
     });
     return send(res, 200, result);
   } catch (err) {
-    if (err instanceof UserError) return send(res, err.status, { error: err.message });
+    if (err instanceof UserError) return send(res, err.status, { error: err.message, ...err.extra });
     console.error(err);
     return send(res, 500, { error: "Something went wrong on the server." });
   }
