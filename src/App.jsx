@@ -146,12 +146,13 @@ export default function App() {
     });
   }, []);
 
-  const showToast = useCallback((text) => {
-    setToast({ text, key: Date.now() });
+  // action: optional { label, run } shown as a button in the toast (e.g. Undo).
+  const showToast = useCallback((text, action) => {
+    setToast({ text, action, key: Date.now() });
   }, []);
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2400);
+    const t = setTimeout(() => setToast(null), toast.action ? 6000 : 2400);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -510,6 +511,31 @@ export default function App() {
     }
   }, [addLog, speak]);
 
+  const setLog = useCallback((docId, log) => {
+    setStore((s) => (s.docs[docId] ? { ...s, docs: { ...s.docs, [docId]: { ...s.docs[docId], log } } } : s));
+  }, []);
+
+  // Clears this diagram's conversation (the diagram itself is untouched), with a short Undo.
+  const clearConversation = useCallback(() => {
+    const cur = docRef.current;
+    const previous = cur.log || [];
+    setLog(cur.id, []);
+    if (!previous.length) return false;
+    showToast("Conversation cleared.", { label: "Undo", run: () => setLog(cur.id, previous) });
+    return true;
+  }, [setLog, showToast]);
+
+  // Removes the most recent exchange: the last thing said and the replies to it.
+  const deleteLastExchange = useCallback(() => {
+    const cur = docRef.current;
+    const previous = cur.log || [];
+    const lastUser = previous.map((l) => l.role).lastIndexOf("user");
+    if (lastUser < 0 && !previous.length) return false;
+    setLog(cur.id, lastUser < 0 ? previous.slice(0, -1) : previous.slice(0, lastUser));
+    showToast("Deleted the last message.", { label: "Undo", run: () => setLog(cur.id, previous) });
+    return true;
+  }, [setLog, showToast]);
+
   const reply = useCallback((text) => {
     addLog({ role: "assistant", text });
     speak(text);
@@ -599,6 +625,18 @@ export default function App() {
         addLog({ role: "assistant", text: "I'll read my replies aloud. Say “stop talking” to turn it off." });
         if ("speechSynthesis" in window) speechSynthesis.speak(new SpeechSynthesisUtterance("I'll read my replies aloud."));
         return undefined;
+      case "clearLog":
+        // Runs after the command itself was logged; that entry goes too.
+        if (!clearConversation()) setLog(cur.id, []);
+        speak("Cleared the conversation.");
+        return undefined;
+      case "deleteLast":
+        if (!deleteLastExchange()) {
+          setLog(cur.id, cur.log || []);
+          showToast("There's nothing to delete yet.");
+        }
+        speak("Deleted the last message.");
+        return undefined;
       case "speakOff":
         if ("speechSynthesis" in window) speechSynthesis.cancel();
         setPrefs((p) => ({ ...p, speak: false }));
@@ -617,7 +655,7 @@ export default function App() {
       case "deselect": setSelection([]); setSelectedEdges([]); return reply("Cleared the selection.");
       default: return undefined;
     }
-  }, [reply, undo, redo, commit, tidy, fitSoon, exportImage, copyMermaid, share, review, writeDocs, removeItems, selectedEdges, rf, animate, addLog, setDocFields]);
+  }, [reply, undo, redo, commit, tidy, fitSoon, exportImage, copyMermaid, share, review, writeDocs, removeItems, selectedEdges, rf, animate, addLog, setDocFields, clearConversation, deleteLastExchange, setLog, showToast, speak]);
 
   const runCommand = useCallback(async (raw) => {
     const text = raw.trim();
@@ -994,7 +1032,12 @@ export default function App() {
           </section>
 
           <section className="side-section conversation">
-            <h3 className="mono-label">Conversation</h3>
+            <div className="conversation-head">
+              <h3 className="mono-label">Conversation</h3>
+              <button type="button" className="clear-log" onClick={clearConversation} disabled={!doc.log?.length} title="Clear this diagram's conversation · say “clear the conversation”">
+                <Icon name="trash" size={13} /> Clear
+              </button>
+            </div>
             <ol className="log" ref={logRef}>
               {(doc.log || []).map((entry, i) => (
                 <li key={i} className={`log-${entry.role}${entry.error ? " log-error" : ""}`}>
@@ -1063,7 +1106,14 @@ export default function App() {
         </div>
       )}
 
-      {toast && <div className="toast" key={toast.key} role="status">{toast.text}</div>}
+      {toast && (
+        <div className="toast" key={toast.key} role="status">
+          {toast.text}
+          {toast.action && (
+            <button type="button" onClick={() => { toast.action.run(); setToast(null); focusCommand(); }}>{toast.action.label}</button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -18,6 +18,8 @@ const LOCAL = [
   { action: "move", pattern: /^(please )?(move|nudge|shift|push|drag) (.+?) (to the |towards the )?(left|right|up|down|higher|lower)( (a )?(tiny bit|bit|little|lot|way))?( please)?$/, parse: (m) => ({ target: m[3], dir: m[5], amount: m[8] || "" }) },
   { action: "select", pattern: /^(please )?(select|highlight|pick|choose) (.+)$/, parse: (m) => m[3] },
   { action: "fix", pattern: /^(please )?(fix|apply|resolve|address|solve)( all( of)?)? (it|them|those|these|that|everything|all|the (issues|problems|findings|suggestions|review|fixes)|the (first|second|third|fourth|fifth|sixth|1st|2nd|3rd|4th|5th|6th|last|top) (one|issue|problem|finding|suggestion)|(issue|finding|number|suggestion) (\d))( for me)?( please)?$/, parse: (m) => m[7] || m[10] || null },
+  { action: "clearLog", pattern: /^(please )?(clear|delete|erase|wipe|remove|reset)( the| my| our| all( the| of the)?)? (conversation|chat|history|messages|log)( history| log)?( please)?$/ },
+  { action: "deleteLast", pattern: /^(please )?(delete|remove|erase|clear)( the| my)? last (message|messages|exchange|command|reply|thing i said)( please)?$/ },
   { action: "speakOn", pattern: /^(please )?(read( replies| answers| it| them)?( out)? aloud|turn on (read(ing)? aloud|voice( replies)?|speech)|talk (to me|back))$/ },
   { action: "speakOff", pattern: /^(stop( reading( aloud)?| talking| speaking)?|be quiet|quiet|shush|mute|turn off (read(ing)? aloud|voice( replies)?|speech))$/ },
   { action: "focus", pattern: /^(please )?(zoom( in)? (to|on|into)|focus on|show me|go to|jump to|find|where is|where's)( the)? (.+?)\??$/, arg: 6 },
@@ -121,7 +123,7 @@ export const EVERYTHING_YOU_CAN_SAY = [
     items: ["“Download PNG”, “Download SVG”", "“Copy for README”", "“Share it”"],
   },
   {
-    title: "Voice replies",
-    items: ["“Read replies aloud”", "“Stop talking”", "Or just type and press Enter"],
+    title: "Conversation",
+    items: ["“Clear the conversation”", "“Delete the last message”", "“Read replies aloud”, “Stop talking”", "Or just type and press Enter"],
   },
 ];

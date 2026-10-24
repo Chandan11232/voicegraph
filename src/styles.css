@@ -285,3 +285,12 @@ kbd { display: inline-block; padding: 0 6px; font: 600 11px var(--mono); color: 
 /* Dictation landed and is about to run */
 .hold-hint.heard { color: var(--accent-deep); font-weight: 500; }
 .heard-dot { display: inline-block; width: 8px; height: 8px; margin-right: 4px; border-radius: 50%; background: var(--accent); vertical-align: 0; animation: pulse 0.9s ease-in-out infinite; }
+
+/* Conversation header + clear button */
+.conversation-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.conversation-head .mono-label { margin: 0; }
+.clear-log { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; font-size: 12px; font-weight: 600; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; transition: color 0.15s, border-color 0.15s; }
+.clear-log:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
+.toast { display: flex; align-items: center; gap: 14px; }
+.toast button { padding: 3px 10px; font-weight: 700; font-size: 13px; color: var(--ink); background: var(--accent); border-radius: 4px; }
+.toast button:hover { background: #f07a57; }
