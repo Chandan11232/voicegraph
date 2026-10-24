@@ -1,6 +1,11 @@
 // ELK is ~1.4 MB, so it loads on first layout instead of with the page.
 let elkPromise;
-const getElk = () => (elkPromise ||= import("elkjs/lib/elk.bundled.js").then(({ default: ELK }) => new ELK()));
+const getElk = () => (elkPromise ||= import("elkjs/lib/elk.bundled.js")
+  .then(({ default: ELK }) => new ELK())
+  .catch((err) => {
+    elkPromise = null; // let the next layout try again instead of failing forever
+    throw new Error("Couldn't load the layout engine. Refresh the page and try again.", { cause: err });
+  }));
 
 export const DEFAULT_SIZE = { width: 220, height: 68 };
 export const GROUP_PAD = { top: 44, side: 22, bottom: 22 };
