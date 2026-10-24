@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vercel/
+.DS_Store
+
+# Secrets stay local; the template is shared.
+.env
+.env.*
+!.env.example

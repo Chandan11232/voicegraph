@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Voicegraph</title>
+  <meta name="description" content="Say the system. Shape it by hand. Turn spoken architecture into a diagram you can drag, review and drop into your README.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/src/landing.css">
+</head>
+<body>
+  <header class="nav wrap">
+    <a class="logo" href="/">
+      <span class="logo-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+      voicegraph<span class="logo-star">✳</span>
+    </a>
+    <nav>
+      <a href="#how">How it works</a>
+      <a href="#features">What it does</a>
+      <a class="btn-outline" href="/app">Open workspace <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero wrap">
+      <div class="hero-copy">
+        <p class="eyebrow">A whiteboard for the systems you explain out loud</p>
+        <h1>Say the system.<br>Shape it by <span class="accent">hand.</span></h1>
+        <p class="lede">Describe your architecture the way you'd explain it to a teammate. Voicegraph draws it, lets you drag every box into place, reviews it for weak spots and writes the README section for you.</p>
+        <div class="cta-row">
+          <a class="btn-dark" href="/app">Start with your voice <span aria-hidden="true">→</span></a>
+          <a class="btn-link" href="/app?sample=1">Try the sample <span aria-hidden="true">↗</span></a>
+        </div>
+        <p class="fineprint">Built with Wispr Flow · Hold Fn, speak, let go.</p>
+      </div>
+
+      <figure class="example card-tilt" aria-label="Example: a spoken sentence becomes a diagram">
+        <div class="example-head">
+          <span><b class="dot"></b> Example workflow</span>
+          <span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        </div>
+        <blockquote class="quote">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg>
+          “Shoppers hit a Next.js storefront, it calls the orders API, and the API writes to Postgres. Put a Redis cache in front of the database.”
+        </blockquote>
+        <div class="connector" aria-hidden="true"></div>
+        <div class="mini-canvas">
+          <p class="mini-label">One sentence. A diagram you can drag.</p>
+          <div class="mini-flow">
+            <div class="mini-node"><span class="ic c-client"></span>Shoppers</div>
+            <span class="mini-edge"></span>
+            <div class="mini-node"><span class="ic c-service"></span>Storefront</div>
+            <span class="mini-edge"></span>
+            <div class="mini-node"><span class="ic c-service"></span>Orders API</div>
+          </div>
+          <div class="mini-flow mini-flow-2">
+            <div class="mini-node new"><span class="ic c-cache"></span>Redis <em>new</em></div>
+            <span class="mini-edge"></span>
+            <div class="mini-node"><span class="ic c-db"></span>Postgres</div>
+          </div>
+          <ul class="mini-checks">
+            <li><span>Added Redis between the API and Postgres</span><b>✓</b></li>
+            <li><span>Review found 2 single points of failure</span><b>✓</b></li>
+            <li><span>README architecture section</span><b class="tag">Draft</b></li>
+          </ul>
+        </div>
+        <figcaption>Everything stays in your browser. No account needed.</figcaption>
+      </figure>
+    </section>
+
+    <section class="band">
+      <div class="wrap band-inner">
+        <h2>Less dragging.<br>More designing.</h2>
+        <p>For the moment you can explain your system in thirty seconds but drawing it would take thirty minutes.</p>
+        <span class="band-tag">Voice → Diagram → README</span>
+      </div>
+    </section>
+
+    <section id="how" class="steps wrap">
+      <div>
+        <p class="eyebrow">A flow that follows your thinking</p>
+        <h2>Speak. Shape.<br>Then ship.</h2>
+      </div>
+      <ol>
+        <li>
+          <span class="num">01</span>
+          <h3>Say what you're building.</h3>
+          <p>Hold Fn with Wispr Flow and talk. “Add a queue between the API and the email worker.” Self-corrections like “no wait, Kafka” are understood.</p>
+        </li>
+        <li>
+          <span class="num">02</span>
+          <h3>Shape it by hand.</h3>
+          <p>Drag boxes, draw connections, double-click to rename. Select a box and say “make this red” or “connect this to Stripe”. Your layout stays put.</p>
+        </li>
+        <li>
+          <span class="num">03</span>
+          <h3>Review, then ship it.</h3>
+          <p>Ask for an architecture review, get a README section written from the diagram, and export PNG, SVG or a Mermaid block GitHub renders natively.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section id="features" class="features wrap">
+      <article><h3>Voice-first editing</h3><p>Dictation runs by itself the moment it lands. “Undo”, “tidy up”, “download PNG” work instantly.</p></article>
+      <article><h3>Drag-and-drop canvas</h3><p>Smooth panning, zoom, multi-select, minimap and groups that follow their boxes.</p></article>
+      <article><h3>Architecture review</h3><p>Flags single points of failure, missing caches and risky sync calls, pinned to the boxes involved.</p></article>
+      <article><h3>README in one click</h3><p>Overview, components and data flow, written from what you drew, with the diagram as Mermaid.</p></article>
+      <article><h3>Share a link</h3><p>The whole diagram fits in the URL. Send it and they open exactly what you see.</p></article>
+      <article><h3>Private by default</h3><p>Diagrams are saved in your browser. Only your command goes to the AI to draw it.</p></article>
+    </section>
+
+    <section class="wrap">
+      <div class="cta-block">
+        <div>
+          <p class="eyebrow">Your next diagram starts here</p>
+          <h2>You do the explaining.<br>Let your voice draw it.</h2>
+        </div>
+        <a class="btn-dark" href="/app">Open the workspace <span aria-hidden="true">→</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer wrap">
+    <span>Voicegraph · Built by voice for No Hands: The Wispr Challenge</span>
+    <a href="/app">Workspace</a>
+  </footer>
+</body>
+</html>

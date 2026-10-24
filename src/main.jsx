@@ -1,0 +1,15 @@
+import { createRoot } from "react-dom/client";
+import { ReactFlowProvider } from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import "./styles.css";
+import App from "./App.jsx";
+
+if (new URLSearchParams(location.search).has("debug")) {
+  import("./debug.js").then(({ installDebugPanel }) => installDebugPanel());
+}
+
+createRoot(document.getElementById("root")).render(
+  <ReactFlowProvider>
+    <App />
+  </ReactFlowProvider>,
+);
