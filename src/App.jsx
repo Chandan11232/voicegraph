@@ -50,6 +50,13 @@ function labelList(graph, ids) {
   return labels.length > 1 ? `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}` : labels[0] || "it";
 }
 
+// Rendered ids for merged two-way arrows look like "a<->b"; the graph stores "a->b" and "b->a".
+const expandEdgeIds = (ids) => ids.flatMap((id) => {
+  if (!id.includes("<->")) return [id];
+  const [a, b] = id.split("<->");
+  return [`${a}->${b}`, `${b}->${a}`];
+});
+
 const snapshot = (doc) => ({ graph: doc.graph, positions: doc.positions });
 
 function download(href, filename) {
@@ -207,7 +214,7 @@ export default function App() {
     const cur = docRef.current;
     const groupIds = new Set(nodeIds.filter((id) => id.startsWith("group:")).map((id) => id.slice(6)));
     const gone = new Set(nodeIds.filter((id) => !id.startsWith("group:")));
-    const edgesGone = new Set(edgeIds);
+    const edgesGone = new Set(expandEdgeIds(edgeIds));
     if (!gone.size && !groupIds.size && !edgesGone.size) return 0;
     const graph = sanitizeGraph({
       ...cur.graph,
@@ -274,15 +281,44 @@ export default function App() {
     return [...groups, ...arch];
   }, [doc.graph, doc.positions, groupBoxes, sizes, selection, findingByNode, renameNode, renameGroup]);
 
-  const edges = useMemo(() => doc.graph.edges.map((e) => {
-    const id = edgeId(e);
-    return {
-      id, source: e.from, target: e.to, label: e.label || undefined,
-      animated: e.style === "dashed", selected: selectedEdges.includes(id),
-      className: e.style === "dashed" ? "dashed" : undefined,
-      markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: "#1a1a17" },
+  const edges = useMemo(() => {
+    const center = (id) => {
+      const p = doc.positions[id] || { x: 0, y: 0 };
+      const s = sizes[id] || DEFAULT_SIZE;
+      return { x: p.x + s.width / 2, y: p.y + s.height / 2 };
     };
-  }), [doc.graph.edges, selectedEdges]);
+    // Leave and enter on the sides that face each other, so arrows never loop around a box.
+    const sidesFor = (from, to) => {
+      const a = center(from);
+      const b = center(to);
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const horizontal = Math.abs(dx) >= Math.abs(dy) * (doc.graph.direction === "TB" ? 1.4 : 0.7);
+      if (horizontal) return dx >= 0 ? ["right", "left"] : ["left", "right"];
+      return dy >= 0 ? ["bottom", "top"] : ["top", "bottom"];
+    };
+    const marker = { type: MarkerType.ArrowClosed, width: 18, height: 18, color: "#1a1a17" };
+    const byId = new Map(doc.graph.edges.map((e) => [edgeId(e), e]));
+    const drawn = new Set();
+    const out = [];
+    for (const e of doc.graph.edges) {
+      if (drawn.has(edgeId(e))) continue;
+      // A request/response pair (A→B and B→A) becomes one two-headed arrow.
+      const back = byId.get(`${e.to}->${e.from}`);
+      drawn.add(edgeId(e));
+      if (back) drawn.add(edgeId(back));
+      const id = back ? `${e.from}<->${e.to}` : edgeId(e);
+      const [sourceSide, targetSide] = sidesFor(e.from, e.to);
+      const dashed = e.style === "dashed" && (!back || back.style === "dashed");
+      out.push({
+        id, source: e.from, target: e.to, sourceHandle: `s-${sourceSide}`, targetHandle: `t-${targetSide}`,
+        label: [e.label, back?.label].filter(Boolean).join(" / ") || undefined,
+        animated: dashed, className: dashed ? "dashed" : undefined, selected: selectedEdges.includes(id),
+        markerEnd: marker, ...(back && { markerStart: marker }),
+      });
+    }
+    return out;
+  }, [doc.graph.edges, doc.positions, sizes, selectedEdges]);
 
   const onNodesChange = useCallback((changes) => {
     const cur = docRef.current;
@@ -348,7 +384,10 @@ export default function App() {
     const cur = docRef.current;
     const label = window.prompt("Label this connection", edge.label || "");
     if (label === null) return;
-    commit({ graph: { ...cur.graph, edges: cur.graph.edges.map((e) => (edgeId(e) === edge.id ? { ...e, label: label.trim().slice(0, 40) } : e)) } });
+    // A two-headed arrow takes the label on its forward edge; the reverse one's label is cleared.
+    const [forward, reverse] = expandEdgeIds([edge.id]);
+    const text = label.trim().slice(0, 40);
+    commit({ graph: { ...cur.graph, edges: cur.graph.edges.map((e) => (edgeId(e) === forward ? { ...e, label: text } : edgeId(e) === reverse ? { ...e, label: "" } : e)) } });
   }, [commit]);
 
   const onNodeDragStart = useCallback(() => {
@@ -876,7 +915,7 @@ export default function App() {
             zoomOnPinch
             minZoom={MIN_ZOOM}
             maxZoom={MAX_ZOOM}
-            defaultEdgeOptions={{ type: "default" }}
+            defaultEdgeOptions={{ type: "smoothstep", pathOptions: { borderRadius: 14, offset: 22 } }}
           >
             <Background gap={22} size={1.4} color="#d6d3c6" />
             <MiniMap pannable zoomable nodeStrokeWidth={2} nodeBorderRadius={6}

@@ -1,5 +1,5 @@
-import { memo, useEffect, useRef, useState } from "react";
-import { Handle, Position, useUpdateNodeInternals } from "@xyflow/react";
+import { Fragment, memo, useEffect, useRef, useState } from "react";
+import { Handle, Position } from "@xyflow/react";
 import { Icon, KIND_LABELS } from "../icons.jsx";
 
 function InlineEdit({ value, onDone, className }) {
@@ -26,20 +26,23 @@ function InlineEdit({ value, onDone, className }) {
   );
 }
 
+// A connection point on every side; each arrow uses the pair of sides that face each other.
+const SIDES = [["top", Position.Top], ["right", Position.Right], ["bottom", Position.Bottom], ["left", Position.Left]];
+
 export const ArchNode = memo(function ArchNode({ id, data, selected }) {
   const [editing, setEditing] = useState(false);
-  const updateInternals = useUpdateNodeInternals();
-  const vertical = data.direction === "TB";
-
-  useEffect(() => updateInternals(id), [id, vertical, updateInternals]);
-
   const classes = ["arch-node", `kind-${data.kind}`, data.color && `color-${data.color}`, selected && "selected", data.finding && `finding-${data.finding}`]
     .filter(Boolean)
     .join(" ");
 
   return (
     <div className={classes} onDoubleClick={() => setEditing(true)} title={editing ? undefined : "Drag to move · double-click to rename"}>
-      <Handle type="target" position={vertical ? Position.Top : Position.Left} />
+      {SIDES.map(([side, position]) => (
+        <Fragment key={side}>
+          <Handle type="target" id={`t-${side}`} position={position} />
+          <Handle type="source" id={`s-${side}`} position={position} />
+        </Fragment>
+      ))}
       <div className="arch-icon"><Icon name={data.kind} size={20} /></div>
       <div className="arch-text">
         {editing ? (
@@ -56,7 +59,6 @@ export const ArchNode = memo(function ArchNode({ id, data, selected }) {
         <div className="arch-meta">{data.tech || KIND_LABELS[data.kind]}</div>
       </div>
       {data.finding && <span className="finding-dot" aria-label={`${data.finding} severity finding`} />}
-      <Handle type="source" position={vertical ? Position.Bottom : Position.Right} />
     </div>
   );
 });

@@ -41,6 +41,7 @@ Rules:
 - Pick the kind that fits: users/browsers/mobile apps -> client; APIs/servers/backends -> service; lambdas/cron/workers -> function; SQL/NoSQL -> database; Redis/Memcached/CDN cache -> cache; Kafka/SQS/RabbitMQ/pub-sub -> queue; S3/blob/files -> storage; Stripe/Twilio/any third-party -> external; LLMs/ML models/vector search -> ai.
 - Put the technology in "tech" and the role in "label" when both are said ("a Postgres database for orders" -> label "Orders DB", tech "Postgres").
 - "between A and B" means replace the A->B edge with A->new->B.
+- One arrow per interaction, pointing the way the request or data flows. Never add a separate reverse arrow for a response or reply ("calls Groq and returns the result" is one arrow, api -> groq). Keep diagrams readable: avoid redundant edges.
 - If the user says "this", "these", "it" or "the selected one", they mean the selected nodes listed below.
 - Spoken input can contain filler or self-corrections ("no wait, I mean Redis"); follow the corrected intent.
 - If the user asks a question about the diagram or the system it shows ("what happens if Redis goes down?", "why is the queue there?", "explain this diagram", "how does a request reach the database?"), do NOT change anything: return the diagram exactly as given and answer in "summary" in 1-3 plain sentences, referring to boxes by their labels.
